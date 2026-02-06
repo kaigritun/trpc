@@ -11,6 +11,7 @@ import type {
   ResolverDef,
   TRPCQueryKey,
   TRPCQueryOptionsResult,
+  TRPCReactRequestOptions,
 } from './types';
 import { createTRPCOptionsResult, readQueryKey } from './utils';
 
@@ -20,6 +21,10 @@ interface BaseTRPCSubscriptionOptionsIn<TOutput, TError> {
   onData?: (data: inferAsyncIterableYield<TOutput>) => void;
   onError?: (err: TError) => void;
   onConnectionStateChange?: (state: TRPCConnectionState<TError>) => void;
+  /**
+   * tRPC-related options
+   */
+  trpc?: TRPCReactRequestOptions;
 }
 
 interface UnusedSkipTokenTRPCSubscriptionOptionsIn<TOutput, TError> {
@@ -27,6 +32,10 @@ interface UnusedSkipTokenTRPCSubscriptionOptionsIn<TOutput, TError> {
   onData?: (data: inferAsyncIterableYield<TOutput>) => void;
   onError?: (err: TError) => void;
   onConnectionStateChange?: (state: TRPCConnectionState<TError>) => void;
+  /**
+   * tRPC-related options
+   */
+  trpc?: TRPCReactRequestOptions;
 }
 
 interface TRPCSubscriptionOptionsOut<
@@ -140,11 +149,17 @@ export const trpcSubscriptionOptions = <
   const { subscribe, path, queryKey, opts = {} } = args;
   const input = readQueryKey(queryKey)?.args?.input;
   const enabled = 'enabled' in opts ? !!opts.enabled : input !== skipToken;
+  // Extract trpc options to forward to subscribe call (for context forwarding)
+  const trpcOpts = 'trpc' in opts ? opts.trpc : undefined;
 
   const _subscribe: ReturnType<
     TRPCSubscriptionOptions<any, TFeatureFlags>
   >['subscribe'] = (innerOpts) => {
-    return subscribe(path.join('.'), input ?? undefined, innerOpts);
+    // Merge subscription callbacks with trpc options (context, signal, etc.)
+    return subscribe(path.join('.'), input ?? undefined, {
+      ...innerOpts,
+      ...trpcOpts,
+    });
   };
 
   return {
